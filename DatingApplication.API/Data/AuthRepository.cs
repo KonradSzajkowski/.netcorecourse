@@ -1,6 +1,8 @@
 using System;
 using System.Threading.Tasks;
 using DatingApplication.API.Models;
+using System.Linq;
+using Microsoft.EntityFrameworkCore;
 
 namespace DatingApplication.API.Data
 {
@@ -12,9 +14,26 @@ namespace DatingApplication.API.Data
             _context = context;
 
         }
-        public Task<User> Login(string username, string password)
+        public async Task<User> Login(string username, string password)
         {
-            throw new System.NotImplementedException();
+            var user=await _context.User.FirstOrDefaultAsync(x=>x.Username==username);
+            if(user == null) return null;
+            if(!VerifyPasswordHash(password,user.PasswordHash,user.PasswordSalt)) return null;
+            return user;
+        }
+
+        private bool VerifyPasswordHash(string password, byte[] passwordHash, byte[] passwordSalt)
+        {
+            using(var hmac=new System.Security.Cryptography.HMACSHA512(passwordSalt))
+            {
+                var computedHash=hmac.ComputeHash(System.Text.Encoding.UTF8.GetBytes(password));
+                for(int i=0;i<computedHash.Length;i++){
+                    if(computedHash[i]!=passwordHash[i]) return false;
+                }
+                return true;
+        
+
+            }
         }
 
         public async Task<User> Register(User user, string password)
@@ -40,9 +59,10 @@ namespace DatingApplication.API.Data
             
         }
 
-        public Task<bool> UserExists(string username)
+        public async Task<bool> UserExists(string username)
         {
-            throw new System.NotImplementedException();
+            if(await _context.User.AnyAsync(x=>x.Username==username)) return true;
+            return false;
         }
     }
 }
